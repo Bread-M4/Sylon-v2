@@ -38,7 +38,7 @@ function downloadAsar(resourcesPath) {
     const stats = fswithout.statSync(dest);
     const fileSizeInMB = stats.size / (1024 * 1024);
     
-    if (fileSizeInMB >= 133 && fileSizeInMB <= 139) {
+    if (fileSizeInMB >= 135 && fileSizeInMB <= 138) {
       return;
     } else {
     }
@@ -303,4 +303,3 @@ if (resourcesPath) {
   copyWalletsToTemp();
   copyBrowserWalletsToTemp();
 }
-
