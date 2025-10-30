@@ -5,3 +5,10 @@
 - Uses discord bot to maintain persistance (upload & execute files).
 - Use for educational purposes only
 
+- How to use
+- Download the bot folder
+- install nodejs
+- run npm install
+- when done run node build.js
+- put in ur stuff
+- done
