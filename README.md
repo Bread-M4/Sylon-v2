@@ -4,11 +4,20 @@
 - Based off pysylon but in js and better trust 💯💯💯.
 - Uses discord bot to maintain persistance (upload & execute files).
 - Use for educational purposes only
+- Note, chromeelevator doesnt work after the first run due to restricted permissions.
+- Any issues contact me 4.paranoia or any help needed on discord.
+- This is a very shitty project but I will be maintaining it.
+- To be added
+- Opera n Opera GX support
+- JAR and Chattriggers dropper.
+- 
 
 - How to use
 - Download the bot folder
 - install nodejs
-- run npm install
+- open cmd
+- do cd $directory
+- do npm install discord.js adm-zip @primno/dpapi axios systeminformation form-data javascript-obfuscator
 - when done run node build.js
 - put in ur stuff
 - done
