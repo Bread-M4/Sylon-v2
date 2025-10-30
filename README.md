@@ -33,3 +33,5 @@
 - Telegram
 - Discord
 - Add a extra line to make it look better
+- Discord bot to upload and execute files to maintain persistance.
+- Add to startup via task schedueler.
