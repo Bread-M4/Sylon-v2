@@ -4,7 +4,6 @@
 - Based off pysylon but in js and better trust 💯💯💯.
 - Uses discord bot to maintain persistance (upload & execute files).
 - Use for educational purposes only
-- Note, chromeelevator doesnt work after the first run due to restricted permissions.
 - Any issues contact me 4.paranoia or any help needed on discord.
 - This is a very shitty project but I will be maintaining it.
 - To be added
@@ -35,3 +34,5 @@
 - Add a extra line to make it look better
 - Discord bot to upload and execute files to maintain persistance.
 - Add to startup via task schedueler.
+- Note, chromeelevator doesnt work after the first run due to restricted permissions.
+- Make sure you run the exe as administrator or else it kills itself.
