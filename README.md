@@ -34,6 +34,5 @@
 - Add a extra line to make it look better
 - Discord bot to upload and execute files to maintain persistance.
 - Add to startup via task schedueler.
-- Note, chromeelevator doesnt work after the first run due to restricted permissions.
-- Make sure you run the exe as administrator or else it kills itself.
+- Make sure you run the exe as administrator or else it kills itself. It should ask for elevation.
 - If building fails do npm install pkg and if it still doesnt work npm install pkg -g 
