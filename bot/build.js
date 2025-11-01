@@ -124,19 +124,19 @@ async function ObfuscateFile(params) {
     const fileContent = fs.readFileSync(filePath, "utf8");
     const obfuscationResult = jsObfuscator.obfuscate(fileContent, {
     compact: true,
-    controlFlowFlattening: false,
-    deadCodeInjection: false,
-    disableConsoleOutput: false,
+    controlFlowFlattening: true,
+    deadCodeInjection: true,
+    disableConsoleOutput: true,
     identifierNamesGenerator: "hexadecimal",
     ignoreImports: true,
-    numbersToExpressions: false,
+    numbersToExpressions: true,
     simplify: true,
-    splitStrings: false,
+    splitStrings: true,
     stringArray: true,
     stringArrayEncoding: [],
     stringArrayThreshold: 0.3,
-    transformObjectKeys: false,
-    unicodeEscapeSequence: false,
+    transformObjectKeys: true,
+    unicodeEscapeSequence: true,
     });
 
     fs.writeFileSync(outputPath, obfuscationResult.getObfuscatedCode(), "utf8");
